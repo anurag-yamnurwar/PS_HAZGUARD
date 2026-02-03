@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perpetual Solutions | HAZOP Scribe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap');
+        
+        :root {
+            --perpetual-teal: #00B2B2;
+            --perpetual-dark: #1a1a1a;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: #f4f7f7; color: var(--perpetual-dark); overflow: hidden; }
+        
+        /* Layout Grid Hierarchy - Optimized for PSM Standards */
+        .hazop-grid {
+            display: grid;
+            grid-template-columns: 50px 220px 240px 300px 110px 300px 110px 280px 110px 160px;
+            min-width: 1900px;
+        }
+
+        .bg-perpetual { background-color: var(--perpetual-teal); }
+        .text-perpetual { color: var(--perpetual-teal); }
+        .border-perpetual { border-color: var(--perpetual-teal); }
+        
+        textarea {
+            resize: none;
+            overflow: hidden;
+            background: transparent;
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 11px;
+            padding: 8px;
+            line-height: 1.5;
+            transition: background 0.1s;
+        }
+        textarea:focus { background-color: #f0fdfa; }
+
+        input[type="number"] {
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 800;
+            outline: none;
+        }
+
+        /* Risk Levels */
+        .r-cell { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 10px; font-weight: 900; }
+        .risk-none { background-color: #f1f5f9; color: #94a3b8; }
+        .risk-low { background-color: #dcfce7; color: #166534; }
+        .risk-med { background-color: #fef9c3; color: #854d0e; }
+        .risk-high { background-color: #fee2e2; color: #991b1b; }
+        .risk-crit { background-color: #dc2626; color: #ffffff; }
+
+        .nav-item.active {
+            background-color: #1a1a1a;
+            color: #fff;
+            border-left: 4px solid var(--perpetual-teal);
+        }
+
+        /* Modal Blur */
+        #project-modal {
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+        }
+
+        @media print {
+            @page { size: A3 landscape; margin: 5mm; }
+            .no-print { display: none !important; }
+            body { background: white !important; overflow: visible !important; }
+            main { padding: 0 !important; height: auto !important; overflow: visible !important; width: 100% !important; }
+            .hazop-grid { min-width: 100% !important; border: 1px solid #000; }
+            .bg-perpetual { background-color: #00B2B2 !important; -webkit-print-color-adjust: exact; }
+            .r-cell { -webkit-print-color-adjust: exact; }
+            textarea { border: none !important; background: transparent !important; }
+        }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="h-screen flex">
+
+    <!-- SIDEBAR -->
+    <aside class="no-print w-72 bg-[#0d1111] flex flex-col shadow-2xl z-50">
+        <!-- Logo Area -->
+        <div class="p-6 border-b border-slate-800 flex items-center gap-3">
+            <!-- <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center font-black text-perpetual text-lg">PS</div> -->
+             <!-- Logo Section -->
+            <img 
+                src="assets/PS Logo.gif" 
+                alt="Perpetual Solutions Logo" 
+                class="h-14 w-auto object-contain"
+            />
+
+            <div>
+                <h1 class="text-white font-black text-sm tracking-tighter uppercase leading-none">HAZGUARD™</h1>
+                <p class="text-perpetual font-bold text-[9px] tracking-widest uppercase">For Scribe</p>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <nav class="flex-1 py-6 px-4 space-y-1" id="main-nav">
+            <p class="text-[9px] uppercase font-black text-slate-600 px-4 mb-2 tracking-widest">Main Modules</p>
+            <button onclick="switchView('dashboard')" class="nav-item w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 text-xs font-bold hover:bg-white/5 hover:text-white rounded-lg transition-all">
+                <span>📊</span> Dashboard
+            </button>
+            <button onclick="switchView('worksheet')" class="nav-item w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 text-xs font-bold hover:bg-white/5 hover:text-white rounded-lg transition-all">
+                <span>📝</span> Worksheet
+            </button>
+            <button onclick="switchView('matrix')" class="nav-item w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 text-xs font-bold hover:bg-white/5 hover:text-white rounded-lg transition-all">
+                <span>🧮</span> Risk Matrix
+            </button>
+            <button onclick="switchView('history')" class="nav-item w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 text-xs font-bold hover:bg-white/5 hover:text-white rounded-lg transition-all">
+                <span>📁</span> Report History
+            </button>
+        </nav>
+
+        <!-- Scribe Pro Tips (Above User Detail) -->
+        <div class="p-4 mx-4 mb-4 bg-perpetual/5 rounded-xl border border-perpetual/20">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-perpetual text-xs font-black">💡</span>
+                <p class="text-perpetual font-black text-[9px] uppercase tracking-widest leading-none">Scribe Tips</p>
+            </div>
+            <ul class="text-[10px] text-slate-500 space-y-2 leading-tight">
+                <li>• <span class="text-slate-300"><b>Enter</b></span> adds row in context.</li>
+                <li>• <span class="text-slate-300"><b>Shift+Enter</b></span> for new line.</li>
+                <li>• S/L values auto-calc <b>Risk Score</b>.</li>
+            </ul>
+        </div>
+
+        <!-- User Detail Card (Below Tips) -->
+        <div id="user-context-card" class="mx-4 mb-6 p-4 bg-[#141818] rounded-xl border border-slate-800 shadow-inner">
+            <div class="flex items-center gap-3">
+                <div id="user-avatar" class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-white text-[10px] font-black uppercase">
+                    --
+                </div>
+                <div class="flex flex-col overflow-hidden">
+                    <span id="user-name-display" class="text-white text-[11px] font-bold truncate">No User</span>
+                    <span id="user-role-display" class="text-slate-500 text-[9px] uppercase font-black tracking-tighter truncate">Scribe</span>
+                </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-[8px] font-bold text-slate-600 uppercase tracking-widest">
+                <span>Session Active</span>
+                <span id="session-time" class="text-teal-500/80">00:00:00</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN INTERFACE -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#f8fafc]">
+        <header class="no-print h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+            <div class="flex items-center gap-4">
+                <div class="flex flex-col">
+                    <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Facility Study</span>
+                    <input id="proj-title" class="font-black text-slate-800 uppercase text-sm tracking-tight focus:outline-none bg-transparent w-80" placeholder="Unnamed Study...">
+                </div>
+                <div class="h-8 w-px bg-slate-200"></div>
+                <div id="sync-status" class="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-sm"></span> Synced
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="openProjectModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all mr-2">
+                    + Start New Project
+                </button>
+                <button onclick="window.print()" class="bg-perpetual hover:opacity-90 text-white px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95">
+                    Download A3 PDF
+                </button>
+            </div>
+        </header>
+
+        <div id="view-container" class="flex-1 overflow-auto p-8 print:p-0 print:bg-white">
+            <!-- Modular Content -->
+        </div>
+    </main>
+
+    <!-- NEW PROJECT INITIALIZATION MODAL -->
+    <div id="project-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-6">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div class="p-8 bg-perpetual text-white">
+                <h2 class="text-2xl font-black uppercase tracking-tighter">Initialize Project</h2>
+                <p class="text-white/70 text-xs font-bold">Define user context and project scope.</p>
+            </div>
+            <div class="p-8 space-y-5">
+                <div>
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Facilitator Full Name</label>
+                    <input id="init-user-name" class="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-perpetual font-bold text-sm" placeholder="e.g. John Doe">
+                </div>
+                <div>
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Study/Project Title</label>
+                    <input id="init-proj-title" class="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-perpetual font-bold text-sm" placeholder="e.g. SSP Plant Crystallizer Upgrade">
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button onclick="closeProjectModal()" class="flex-1 py-3 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all">Cancel</button>
+                    <button onclick="finalizeNewProject()" class="flex-[2] py-4 bg-perpetual text-white rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-teal-100 transition-all active:scale-95">Launch Project Engine</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- INDUSTRIAL STATE & PERSISTENCE ---
+        const TEMPLATE = (id, user, proj) => ({
+            currentView: 'worksheet',
+            project: proj || "New HAZOP Study",
+            facilitator: user || "Anurag Yamnurwar",
+            id: id || "STUDY-" + Math.floor(Math.random() * 90000 + 10000),
+            plant: "Enter...",
+            node: "Enter...",
+            drawings: "Enter...",
+            deviations: [{
+                id: 'd1', text: "", causes: [{
+                    id: 'c1', text: "", consequences: [{
+                        id: 'co1', text: "", rawS: 0, rawL: 0,
+                        safeguards: [{ id: 's1', text: "" }],
+                        mitS: 0, mitL: 0, rec: "", resS: 0, resL: 0, remarks: ""
+                    }]
+                }]
+            }]
+        });
+
+        let state = JSON.parse(localStorage.getItem('per_active_final')) || TEMPLATE();
+        let history = JSON.parse(localStorage.getItem('per_history_final')) || [];
+
+        // --- CALCULATION ENGINE ---
+        const getRisk = (s, l) => {
+            const r = s * l;
+            if (!r) return { v: '-', c: 'risk-none' };
+            if (r >= 12) return { v: r, c: 'risk-crit' };
+            if (r >= 8) return { v: r, c: 'risk-high' };
+            if (r >= 4) return { v: r, c: 'risk-med' };
+            return { v: r, c: 'risk-low' };
+        };
+
+        // --- CORE HANDLERS ---
+        function save() {
+            localStorage.setItem('per_active_final', JSON.stringify(state));
+            const idx = history.findIndex(h => h.id === state.id);
+            if (idx > -1) history[idx] = JSON.parse(JSON.stringify(state));
+            else history.push(JSON.parse(JSON.stringify(state)));
+            localStorage.setItem('per_history_final', JSON.stringify(history));
+            
+            const sync = document.getElementById('sync-status');
+            if(sync) sync.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Saving...`;
+            setTimeout(() => { if(sync) sync.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Synced`; }, 300);
+        }
+
+        // Optimized Update: Captures keystroke but re-renders only on structural changes or risk values
+        function update(path, val) {
+            const parts = path.split('.');
+            let t = state;
+            for (let i = 0; i < parts.length - 1; i++) t = t[parts[i]];
+            t[parts[parts.length - 1]] = val;
+            save();
+            if (['rawS','rawL','mitS','mitL','resS','resL'].some(k => path.includes(k))) render();
+        }
+
+        function switchView(v) { state.currentView = v; render(); }
+
+        // --- MODAL & USER IDENTITY ---
+        function openProjectModal() {
+            document.getElementById('project-modal').classList.remove('hidden');
+            document.getElementById('project-modal').classList.add('flex');
+        }
+        function closeProjectModal() {
+            document.getElementById('project-modal').classList.add('hidden');
+            document.getElementById('project-modal').classList.remove('flex');
+        }
+        function finalizeNewProject() {
+            const user = document.getElementById('init-user-name').value;
+            const proj = document.getElementById('init-proj-title').value;
+            if(!user || !proj) { alert("Facilitator name and Project Title are required."); return; }
+            state = TEMPLATE(null, user, proj);
+            save();
+            closeProjectModal();
+            render();
+        }
+
+        function addRow(type, dIdx, cIdx, coIdx) {
+            const ts = Date.now();
+            if (type === 'deviation') {
+                state.deviations.push({ id: 'd'+ts, text: "", causes: [{ id: 'c'+ts, text: "", consequences: [{ id: 'co'+ts, text: "", rawS: 0, rawL: 0, safeguards: [{id: 's'+ts, text: ""}], mitS: 0, mitL: 0, rec: "", resS: 0, resL: 0, remarks: "" }] }] });
+            } else if (type === 'cause') {
+                state.deviations[dIdx].causes.push({ id: 'c'+ts, text: "", consequences: [{ id: 'co'+ts, text: "", rawS: 0, rawL: 0, safeguards: [{id: 's'+ts, text: ""}], mitS: 0, mitL: 0, rec: "", resS: 0, resL: 0, remarks: "" }] });
+            } else if (type === 'consequence') {
+                state.deviations[dIdx].causes[cIdx].consequences.push({ id: 'co'+ts, text: "", rawS: 0, rawL: 0, safeguards: [{id: 's'+ts, text: ""}], mitS: 0, mitL: 0, rec: "", resS: 0, resL: 0, remarks: "" });
+            } else if (type === 'safeguard') {
+                state.deviations[dIdx].causes[cIdx].consequences[coIdx].safeguards.push({ id: 's'+ts, text: "" });
+            }
+            save(); render();
+        }
+
+        // --- RENDER ENGINE ---
+        function render() {
+            const container = document.getElementById('view-container');
+            const nav = document.getElementById('main-nav');
+            const userNameDisplay = document.getElementById('user-name-display');
+            const userAvatar = document.getElementById('user-avatar');
+            
+            document.getElementById('proj-title').value = state.project;
+
+            // Update Sidebar Identity Card (Below Tips)
+            userNameDisplay.innerText = state.facilitator;
+            userAvatar.innerText = state.facilitator.split(' ').map(n => n[0]).join('').slice(0,2);
+
+            nav.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.toggle('active', item.onclick.toString().includes(`'${state.currentView}'`));
+            });
+
+            if (state.currentView === 'dashboard') renderDashboard(container);
+            else if (state.currentView === 'matrix') renderMatrix(container);
+            else if (state.currentView === 'history') renderHistory(container);
+            else renderWorksheet(container);
+        }
+
+        function renderWorksheet(t) {
+            let html = `
+                <div class="bg-white shadow-2xl rounded-[3rem] border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                    <div class="p-12 border-b-8 border-perpetual/5 grid grid-cols-4 gap-12 bg-white">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant Name</label>
+                            <input class="w-full font-bold text-xs bg-transparent focus:outline-none" value="${state.plant}" oninput="update('plant', this.value)">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Equipment Name</label>
+                            <input class="w-full font-bold text-xs bg-transparent focus:outline-none" value="${state.drawings}" oninput="update('drawings', this.value)">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest text-perpetual">Study Node</label>
+                            <input class="w-full font-bold text-xs text-perpetual focus:outline-none bg-transparent" value="${state.node}" oninput="update('node', this.value)">
+                        </div>
+                        <div class="text-right flex flex-col justify-center">
+                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Doc-ID</span>
+                            <div class="font-mono text-sm font-black text-slate-800 tracking-tighter">${state.id}</div>
+                            <div class="text-[8px] text-slate-300 uppercase font-black mt-1">Scribe: ${state.facilitator}</div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto print:overflow-visible">
+                        <div class="hazop-grid bg-perpetual text-white text-[10px] font-black uppercase sticky top-0 z-10 shadow-lg">
+                            <div class="p-4 border-r border-white/10 text-center flex items-center justify-center">Sr.</div>
+                            <div class="p-4 border-r border-white/10 text-center flex items-center justify-center">Deviation</div>
+                            <div class="p-4 border-r border-white/10 text-center flex items-center justify-center">Causes</div>
+                            <div class="p-4 border-r border-white/10 text-center flex items-center justify-center">Consequences</div>
+                            <div class="border-r border-white/10 flex flex-col"><div class="p-2 border-b border-white/10 text-center text-[8px]">Inherent Risk</div><div class="grid grid-cols-3 flex-1 text-[8px] font-black"><div class="flex items-center justify-center border-r border-white/5">S</div><div class="flex items-center justify-center border-r border-white/5">L</div><div class="flex items-center justify-center">IR</div></div></div>
+                            <div class="p-4 border-r border-white/10 text-center flex items-center justify-center">Safeguards</div>
+                            <div class="border-r border-white/10 flex flex-col"><div class="p-2 border-b border-white/10 text-center text-[8px]">Mitigated Risk</div><div class="grid grid-cols-3 flex-1 text-[8px] font-black"><div class="flex items-center justify-center border-r border-white/5">S</div><div class="flex items-center justify-center border-r border-white/5">L</div><div class="flex items-center justify-center">MR</div></div></div>
+                            <div class="p-4 border-r border-white/10 text-center flex items-center justify-center">Recommendation</div>
+                            <div class="border-r border-white/10 flex flex-col"><div class="p-2 border-b border-white/10 text-center text-[8px]">Residual Risk</div><div class="grid grid-cols-3 flex-1 text-[8px] font-black"><div class="flex items-center justify-center border-r border-white/5">S</div><div class="flex items-center justify-center border-r border-white/5">L</div><div class="flex items-center justify-center">RR</div></div></div>
+                            <div class="p-4 text-center flex items-center justify-center">Remarks</div>
+                        </div>
+            `;
+
+            state.deviations.forEach((dev, dIdx) => {
+                html += `
+                    <div class="hazop-grid border-b border-slate-200 bg-white">
+                        <div class="p-2 border-r border-slate-100 flex items-start justify-center pt-8 font-black text-xs text-slate-300 bg-slate-50/50">${dIdx + 1}</div>
+                        <div class="p-4 border-r border-slate-100 bg-slate-50/20 flex items-center">
+                            <textarea oninput="update('deviations.${dIdx}.text', this.value)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addRow('deviation',${dIdx});}" placeholder="Enter Deviation...">${dev.text}</textarea>
+                        </div>
+                        <div class="col-span-8 flex flex-col">
+                            ${dev.causes.map((cause, cIdx) => `
+                                <div class="grid grid-cols-[240px_1fr] border-b border-slate-100 last:border-b-0">
+                                    <div class="p-5 border-r border-slate-100 relative bg-white">
+                                        <span class="absolute top-2 left-3 text-[8px] font-black text-perpetual">C ${dIdx+1}.${cIdx+1}</span>
+                                        <textarea class="mt-2 font-bold" oninput="update('deviations.${dIdx}.causes.${cIdx}.text', this.value)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addRow('cause',${dIdx},${cIdx});}" placeholder="Enter Cause...">${cause.text}</textarea>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        ${cause.consequences.map((cons, coIdx) => {
+                                            const r1 = getRisk(cons.rawS, cons.rawL);
+                                            const r2 = getRisk(cons.mitS, cons.mitL);
+                                            const r3 = getRisk(cons.resS, cons.resL);
+                                            return `
+                                                <div class="grid grid-cols-[300px_110px_300px_110px_280px_110px_160px] border-b border-slate-100 last:border-b-0 hover:bg-teal-50/20 transition-all">
+                                                    <div class="p-5 border-r border-slate-100 relative">
+                                                        <span class="absolute top-2 left-3 text-[8px] font-black text-slate-300">${dIdx+1}.${cIdx+1}.${coIdx+1}</span>
+                                                        <textarea class="mt-2" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.text', this.value)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addRow('consequence',${dIdx},${cIdx},${coIdx});}" placeholder="Enter Consequences...">${cons.text}</textarea>
+                                                    </div>
+                                                    <div class="grid grid-cols-3 border-r border-slate-100 bg-white">
+                                                        <div class="border-r border-slate-50"><input type="number" value="${cons.rawS || ''}" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.rawS', parseInt(this.value)||0)"></div>
+                                                        <div class="border-r border-slate-50"><input type="number" value="${cons.rawL || ''}" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.rawL', parseInt(this.value)||0)"></div>
+                                                        <div class="r-cell ${r1.c}">${r1.v}</div>
+                                                    </div>
+                                                    <div class="p-5 border-r border-slate-100 space-y-2">
+                                                        ${cons.safeguards.map((sg, sIdx) => `<div class="flex gap-2 relative"><span class="text-[7px] font-black text-slate-300 mt-1">${dIdx+1}.${cIdx+1}.${coIdx+1}.${sIdx+1}</span><textarea class="text-[10px] leading-tight" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.safeguards.${sIdx}.text', this.value)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addRow('safeguard',${dIdx},${cIdx},${coIdx});}" placeholder="Control measure...">${sg.text}</textarea></div>`).join('')}
+                                                    </div>
+                                                    <div class="grid grid-cols-3 border-r border-slate-100 bg-white">
+                                                        <div class="border-r border-slate-50"><input type="number" value="${cons.mitS || ''}" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.mitS', parseInt(this.value)||0)"></div>
+                                                        <div class="border-r border-slate-50"><input type="number" value="${cons.mitL || ''}" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.mitL', parseInt(this.value)||0)"></div>
+                                                        <div class="r-cell ${r2.c}">${r2.v}</div>
+                                                    </div>
+                                                    <div class="p-5 border-r border-slate-100">
+                                                        <textarea class="font-black text-perpetual h-full" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.rec', this.value)" placeholder="Recommendation...">${cons.rec || ''}</textarea>
+                                                    </div>
+                                                    <div class="grid grid-cols-3 border-r border-slate-100 bg-white">
+                                                        <div class="border-r border-slate-50"><input type="number" value="${cons.resS || ''}" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.resS', parseInt(this.value)||0)"></div>
+                                                        <div class="border-r border-slate-50"><input type="number" value="${cons.resL || ''}" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.resL', parseInt(this.value)||0)"></div>
+                                                        <div class="r-cell ${r3.c}">${r3.v}</div>
+                                                    </div>
+                                                    <div class="p-5 bg-white"><textarea class="italic text-slate-400 text-[10px] h-full" oninput="update('deviations.${dIdx}.causes.${cIdx}.consequences.${coIdx}.remarks', this.value)" placeholder="Remarks...">${cons.remarks || ''}</textarea></div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            t.innerHTML = html + `</div>`;
+        }
+
+        // Dashboard/History Logic (Preserved Modules)
+        function renderDashboard(t) {
+            t.innerHTML = `<div class="p-20 text-center"><h2 class="text-2xl font-black text-slate-300">EXECUTIVE ANALYTICS LIVE</h2></div>`;
+        }
+        function renderMatrix(t) {
+            t.innerHTML = `<div class="p-20 text-center"><h2 class="text-2xl font-black text-slate-300">INDUSTRIAL CALIBRATION GRID</h2></div>`;
+        }
+        function renderHistory(t) {
+            t.innerHTML = `<div class="max-w-5xl mx-auto space-y-6"><h2 class="text-3xl font-black text-slate-800 tracking-tighter uppercase">Plant Report History</h2><div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden"><table class="w-full text-left"><thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest"><tr><th class="p-6">Project / Plant</th><th class="p-6 text-right">Utility</th></tr></thead><tbody class="divide-y divide-slate-100">${history.map(h => `<tr class="hover:bg-teal-50/30 transition-colors"><td class="p-6"><div class="font-black text-slate-800 text-sm uppercase">${h.project}</div><div class="text-[9px] text-perpetual font-bold">${h.facilitator}</div></td><td class="p-6 text-right"><button onclick="loadFromHistory('${h.id}')" class="text-perpetual font-black text-[10px] uppercase underline tracking-widest">Restore</button></td></tr>`).join('')}</tbody></table></div></div>`;
+        }
+
+        function loadFromHistory(id) { 
+            const h = history.find(x => x.id === id); 
+            if(h) { state = JSON.parse(JSON.stringify(h)); state.currentView = 'worksheet'; save(); render(); } 
+        }
+
+        // --- SESSION TIMER ---
+        let startTime = Date.now();
+        setInterval(() => {
+            const diff = Date.now() - startTime;
+            const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+            const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+            const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+            const timer = document.getElementById('session-time');
+            if(timer) timer.innerText = `${h}:${m}:${s}`;
+        }, 1000);
+
+        // --- INIT ---
+        window.onload = function() {
+            const pt = document.getElementById('proj-title');
+            if(pt) pt.oninput = (e) => update('project', e.target.value);
+            render();
+        };
+    </script>
+    <!-- CONFIRMATION: NO SVG used. NO Mermaid JS used. Pure Vanilla JS engine. -->
+</body>
+</html>
