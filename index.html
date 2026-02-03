@@ -422,14 +422,134 @@
 
         // Dashboard/History Logic (Preserved Modules)
         function renderDashboard(t) {
-            t.innerHTML = `<div class="p-20 text-center"><h2 class="text-2xl font-black text-slate-300">EXECUTIVE ANALYTICS LIVE</h2></div>`;
-        }
+    let total = 0, high = 0, mitigated = 0;
+
+    state.deviations.forEach(d =>
+        d.causes.forEach(c =>
+            c.consequences.forEach(co => {
+                total++;
+                if (co.rawS * co.rawL >= 8) high++;
+                if (co.rawS * co.rawL >= 8 && co.resS * co.resL < 8) mitigated++;
+            })
+        )
+    );
+
+    t.innerHTML = `
+        <div class="max-w-6xl mx-auto space-y-8">
+            <h2 class="text-3xl font-black text-slate-800 tracking-tighter uppercase">
+                Executive Summary
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white p-8 rounded-3xl border">
+                    <p class="text-[10px] font-black text-perpetual uppercase">Total Scenarios</p>
+                    <p class="text-4xl font-black">${total}</p>
+                </div>
+
+                <div class="bg-white p-8 rounded-3xl border">
+                    <p class="text-[10px] font-black text-red-500 uppercase">High Risk</p>
+                    <p class="text-4xl font-black text-red-600">${high}</p>
+                </div>
+
+                <div class="bg-white p-8 rounded-3xl border">
+                    <p class="text-[10px] font-black text-teal-600 uppercase">Mitigated</p>
+                    <p class="text-4xl font-black text-teal-600">${mitigated}</p>
+                </div>
+
+                <div class="bg-white p-8 rounded-3xl border">
+                    <p class="text-[10px] font-black text-perpetual uppercase">Residual %</p>
+                    <p class="text-4xl font-black">
+                        ${high ? (100 - mitigated / high * 100).toFixed(0) : 0}%
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white p-10 rounded-[3rem] border h-96">
+                <canvas id="mainRiskChart"></canvas>
+            </div>
+        </div>
+    `;
+
+    new Chart(document.getElementById('mainRiskChart'), {
+        type: 'bar',
+        data: {
+            labels: ['High Risk', 'Residual Risk'],
+            datasets: [{
+                data: [high, high - mitigated],
+                backgroundColor: ['#dc2626', '#00B2B2']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
         function renderMatrix(t) {
-            t.innerHTML = `<div class="p-20 text-center"><h2 class="text-2xl font-black text-slate-300">INDUSTRIAL CALIBRATION GRID</h2></div>`;
-        }
+    t.innerHTML = `
+        <div class="max-w-4xl mx-auto space-y-6">
+            <h2 class="text-3xl font-black text-slate-800 uppercase">
+                5x5 Risk Matrix
+            </h2>
+
+            <div class="bg-white p-12 rounded-[4rem] border shadow-2xl">
+                <table class="w-full text-[10px] font-bold uppercase">
+                    <thead>
+                        <tr>
+                            <th class="p-5 bg-slate-50">P \\ S</th>
+                            ${[1,2,3,4,5].map(s => `<th class="p-5">S${s}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${[5,4,3,2,1].map(p => `
+                            <tr>
+                                <td class="p-5 bg-slate-50">P${p}</td>
+                                ${[1,2,3,4,5].map(s => {
+                                    const r = getRisk(s, p);
+                                    return `<td class="p-5 text-center ${r.c}">${r.v}</td>`;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
         function renderHistory(t) {
-            t.innerHTML = `<div class="max-w-5xl mx-auto space-y-6"><h2 class="text-3xl font-black text-slate-800 tracking-tighter uppercase">Plant Report History</h2><div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden"><table class="w-full text-left"><thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest"><tr><th class="p-6">Project / Plant</th><th class="p-6 text-right">Utility</th></tr></thead><tbody class="divide-y divide-slate-100">${history.map(h => `<tr class="hover:bg-teal-50/30 transition-colors"><td class="p-6"><div class="font-black text-slate-800 text-sm uppercase">${h.project}</div><div class="text-[9px] text-perpetual font-bold">${h.facilitator}</div></td><td class="p-6 text-right"><button onclick="loadFromHistory('${h.id}')" class="text-perpetual font-black text-[10px] uppercase underline tracking-widest">Restore</button></td></tr>`).join('')}</tbody></table></div></div>`;
-        }
+    t.innerHTML = `
+        <div class="max-w-5xl mx-auto space-y-8">
+            <h2 class="text-3xl font-black text-slate-800 uppercase">
+                Plant Report History
+            </h2>
+
+            <div class="bg-white rounded-3xl border shadow-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 text-[10px] font-black uppercase">
+                        <tr>
+                            <th class="p-6">Project</th>
+                            <th class="p-6">Facilitator</th>
+                            <th class="p-6">Ref ID</th>
+                            <th class="p-6 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${history.map(h => `
+                            <tr class="hover:bg-teal-50/40">
+                                <td class="p-6 font-black">${h.project}</td>
+                                <td class="p-6 text-xs uppercase">${h.facilitator}</td>
+                                <td class="p-6 font-mono text-xs">${h.id}</td>
+                                <td class="p-6 text-right">
+                                    <button onclick="loadFromHistory('${h.id}')" class="text-perpetual text-xs font-black underline">Restore</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
 
         function loadFromHistory(id) { 
             const h = history.find(x => x.id === id); 
